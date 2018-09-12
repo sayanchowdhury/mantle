@@ -62,12 +62,27 @@ var (
 	}
 	platformList []string
 
+	systems = map[string]system{
+		"cl": system{
+			handler: runCLPreRelease,
+		},
+		"fedora": system{
+			handler: runFedoraPreRelease,
+		},
+	}
+	systemList []string
+
 	selectedPlatforms  []string
+	selectedSystems    []string
 	azureProfile       string
 	awsCredentialsFile string
 	verifyKeyFile      string
 	imageInfoFile      string
 )
+
+type system struct {
+	handler func() error
+}
 
 type platform struct {
 	displayName string
@@ -85,7 +100,13 @@ func init() {
 	}
 	sort.Sort(sort.StringSlice(platformList))
 
+	for k, _ := range systems {
+		systemList = append(systemList, k)
+	}
+	sort.Sort(sort.StringSlice(systemList))
+
 	cmdPreRelease.Flags().StringSliceVar(&selectedPlatforms, "platform", platformList, "platform to pre-release")
+	cmdPreRelease.Flags().StringSliceVar(&selectedSystems, "system", systemList, "system to pre-release")
 	cmdPreRelease.Flags().StringVar(&azureProfile, "azure-profile", "", "Azure Profile json file")
 	cmdPreRelease.Flags().StringVar(&awsCredentialsFile, "aws-credentials", "", "AWS credentials file")
 	cmdPreRelease.Flags().StringVar(&verifyKeyFile,
@@ -100,6 +121,26 @@ func runPreRelease(cmd *cobra.Command, args []string) error {
 	if len(args) > 0 {
 		return errors.New("no args accepted")
 	}
+
+	for _, systemName := range selectedSystems {
+		if _, ok := systems[systemName]; !ok {
+			return fmt.Errorf("Unknown system %q", systemName)
+		}
+
+		system := systems[systemName]
+		if err := system.handler(); err != nil {
+			plog.Fatal(err)
+		}
+	}
+
+	return nil
+}
+
+func runFedoraPreRelease() error {
+	return nil
+}
+
+func runCLPreRelease() error {
 	for _, platformName := range selectedPlatforms {
 		if _, ok := platforms[platformName]; !ok {
 			return fmt.Errorf("Unknown platform %q", platformName)
