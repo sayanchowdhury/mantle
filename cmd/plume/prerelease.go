@@ -64,16 +64,17 @@ var (
 
 	systems = map[string]system{
 		"cl": system{
-			handler: runCLPreRelease,
+			displayName: "ContainerLinux",
+			handler:     runCLPreRelease,
 		},
 		"fedora": system{
-			handler: runFedoraPreRelease,
+			displayName: "Fedora",
+			handler:     runFedoraPreRelease,
 		},
 	}
-	systemList []string
 
 	selectedPlatforms  []string
-	selectedSystems    []string
+	selectedSystem     string
 	azureProfile       string
 	awsCredentialsFile string
 	verifyKeyFile      string
@@ -86,7 +87,8 @@ type platform struct {
 }
 
 type system struct {
-	handler func() error
+	displayName string
+	handler     func(*cobra.Command, []string) error
 }
 
 type imageInfo struct {
@@ -100,13 +102,8 @@ func init() {
 	}
 	sort.Sort(sort.StringSlice(platformList))
 
-	for k, _ := range systems {
-		systemList = append(systemList, k)
-	}
-	sort.Sort(sort.StringSlice(systemList))
-
 	cmdPreRelease.Flags().StringSliceVar(&selectedPlatforms, "platform", platformList, "platform to pre-release")
-	cmdPreRelease.Flags().StringSliceVar(&selectedSystems, "system", systemList, "system to pre-release")
+	cmdPreRelease.Flags().StringVar(&selectedSystem, "system", "", "system to pre-release")
 	cmdPreRelease.Flags().StringVar(&azureProfile, "azure-profile", "", "Azure Profile json file")
 	cmdPreRelease.Flags().StringVar(&awsCredentialsFile, "aws-credentials", "", "AWS credentials file")
 	cmdPreRelease.Flags().StringVar(&verifyKeyFile,
@@ -117,15 +114,11 @@ func init() {
 	root.AddCommand(cmdPreRelease)
 }
 
-func runFedoraPreRelease() error {
+func runFedoraPreRelease(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func runCLPreRelease() error {
-	return nil
-}
-
-func runPreRelease(cmd *cobra.Command, args []string) error {
+func runCLPreRelease(cmd *cobra.Command, args []string) error {
 	if len(args) > 0 {
 		return errors.New("no args accepted")
 	}
@@ -189,6 +182,14 @@ func runPreRelease(cmd *cobra.Command, args []string) error {
 		if err := encoder.Encode(imageInfo); err != nil {
 			plog.Fatalf("couldn't encode image list: %v", err)
 		}
+	}
+
+	return nil
+}
+
+func runPreRelease(cmd *cobra.Command, args []string) error {
+	if _, ok := systems[selectedSystem]; !ok {
+		return fmt.Errorf("Unknown system %q", selectedSystem)
 	}
 
 	plog.Printf("Pre-release complete, run `plume release` to finish.")
