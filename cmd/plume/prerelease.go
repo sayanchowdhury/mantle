@@ -62,7 +62,18 @@ var (
 	}
 	platformList []string
 
+	systems = map[string]system{
+		"cl": system{
+			handler: runCLPreRelease,
+		},
+		"fedora": system{
+			handler: runFedoraPreRelease,
+		},
+	}
+	systemList []string
+
 	selectedPlatforms  []string
+	selectedSystems    []string
 	azureProfile       string
 	awsCredentialsFile string
 	verifyKeyFile      string
@@ -72,6 +83,10 @@ var (
 type platform struct {
 	displayName string
 	handler     func(context.Context, *http.Client, *storage.Bucket, *channelSpec, *imageInfo) error
+}
+
+type system struct {
+	handler func() error
 }
 
 type imageInfo struct {
@@ -85,7 +100,13 @@ func init() {
 	}
 	sort.Sort(sort.StringSlice(platformList))
 
+	for k, _ := range systems {
+		systemList = append(systemList, k)
+	}
+	sort.Sort(sort.StringSlice(systemList))
+
 	cmdPreRelease.Flags().StringSliceVar(&selectedPlatforms, "platform", platformList, "platform to pre-release")
+	cmdPreRelease.Flags().StringSliceVar(&selectedSystems, "system", systemList, "system to pre-release")
 	cmdPreRelease.Flags().StringVar(&azureProfile, "azure-profile", "", "Azure Profile json file")
 	cmdPreRelease.Flags().StringVar(&awsCredentialsFile, "aws-credentials", "", "AWS credentials file")
 	cmdPreRelease.Flags().StringVar(&verifyKeyFile,
@@ -94,6 +115,14 @@ func init() {
 
 	AddSpecFlags(cmdPreRelease.Flags())
 	root.AddCommand(cmdPreRelease)
+}
+
+func runFedoraPreRelease() error {
+	return nil
+}
+
+func runCLPreRelease() error {
+	return nil
 }
 
 func runPreRelease(cmd *cobra.Command, args []string) error {
