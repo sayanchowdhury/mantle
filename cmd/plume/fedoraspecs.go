@@ -79,3 +79,16 @@ var (
 		},
 	}
 )
+
+func ChannelFedoraSpec() channelFedoraSpec {
+	if specChannel == "" {
+		plog.Fatal("--channel is required")
+	}
+
+	spec, ok := fedoraSpecs[specChannel]
+	if !ok {
+		plog.Fatalf("Unknown channel: %s", specChannel)
+	}
+
+	return spec
+}
