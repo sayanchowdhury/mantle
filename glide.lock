@@ -1,5 +1,5 @@
-hash: cd1d1196b85d57be2c1b006a75c2166b6607aa8be729c9dc348e5aa2f75e38de
-updated: 2018-10-01T12:06:01.80855308-05:00
+hash: 847caa21e8fd50661819b5935fbfbc36f3e765ea7488f64d5ef676d86684dc47
+updated: 2018-10-16T00:01:55.320712486+05:30
 imports:
 - name: github.com/ajeddeloh/go-json
   version: 73d058cf8437a1989030afe571eeab9f90eebbbd
@@ -272,6 +272,12 @@ imports:
   version: bdcc60b419d136a85cdf2e7cbcac34b3f1cd6e57
   subpackages:
   - codec
+- name: github.com/ulikunitz/xz
+  version: 0c6b41e72360850ca4f98dc341fd999726ea007f
+  subpackages:
+  - internal/hash
+  - internal/xlog
+  - lzma
 - name: github.com/vincent-petithory/dataurl
   version: 9a301d65acbb728fcc3ace14f45f511a4cfeea9c
 - name: github.com/vishvananda/netlink
@@ -327,17 +333,12 @@ imports:
 - name: golang.org/x/net
   version: 66aacef3dd8a676686c7ae3716979581e8b03c47
   subpackages:
-  - bpf
   - context
   - context/ctxhttp
   - http2
   - http2/hpack
   - idna
-  - internal/iana
-  - internal/socket
   - internal/timeseries
-  - ipv4
-  - ipv6
   - lex/httplex
   - trace
 - name: golang.org/x/oauth2
@@ -383,7 +384,7 @@ imports:
   - internal/urlfetch
   - urlfetch
 - name: google.golang.org/cloud
-  version: ce3259d98fbcbe04db4ed502d169f519aada03b5
+  version: 5f0ffe7729373c98a5801de148565a893a0d2899
   subpackages:
   - compute/metadata
 - name: google.golang.org/genproto
