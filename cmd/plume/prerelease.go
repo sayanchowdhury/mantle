@@ -127,6 +127,7 @@ func runFedoraPreRelease(system string, cmd *cobra.Command, args []string) error
 
 	spec := ChannelFedoraSpec()
 	ctx := context.Background()
+	client := http.Client{}
 
 	var imageInfo imageInfo
 	for _, platformName := range platformList {
@@ -143,10 +144,12 @@ func runFedoraPreRelease(system string, cmd *cobra.Command, args []string) error
 
 		platform := platforms[platformName]
 		plog.Printf("Running %v pre-release...", platform.displayName)
-		if err := platform.handler(system, ctx, nil, nil, &spec, &imageInfo); err != nil {
+		if err := platform.handler(ctx, system, &client, nil, &spec, &imageInfo); err != nil {
 			plog.Fatal(err)
 		}
 	}
+
+	return nil
 }
 
 func runCLPreRelease(system string, cmd *cobra.Command, args []string) error {
@@ -196,7 +199,7 @@ func runCLPreRelease(system string, cmd *cobra.Command, args []string) error {
 
 		platform := platforms[platformName]
 		plog.Printf("Running %v pre-release...", platform.displayName)
-		if err := platform.handler(system, ctx, client, src, &spec, &imageInfo); err != nil {
+		if err := platform.handler(ctx, system, client, src, &spec, &imageInfo); err != nil {
 			plog.Fatal(err)
 		}
 	}
@@ -263,7 +266,7 @@ func getCLImageFile(client *http.Client, src *storage.Bucket, fileName string) (
 	return imagePath, nil
 }
 
-func getFedoraImageFile(client *http.Client, src *storage, fileName string) (string, error) {
+func getFedoraImageFile(client *http.Client, src *storage.Bucket, fileName string) (string, error) {
 	cacheDir := filepath.Join(sdk.RepoCache(), "images", specChannel, specBoard, specVersion)
 	rawxzPath := filepath.Join(cacheDir, fileName)
 	imagePath := strings.TrimSuffix(rawxzPath, filepath.Ext(rawxzPath))
@@ -286,7 +289,7 @@ func getFedoraImageFile(client *http.Client, src *storage, fileName string) (str
 
 	//decompress it
 	plog.Printf("Decompressing %q...", rawxzPath)
-	if err := util.XZ2File(imagePath, bzipPath); err != nil {
+	if err := util.XZ2File(imagePath, rawxzPath); err != nil {
 		return "", err
 	}
 	return imagePath, nil
@@ -296,9 +299,9 @@ func getFedoraImageFile(client *http.Client, src *storage, fileName string) (str
 // decompresses it, and returns the decompressed path.
 func getImageFile(system string, client *http.Client, src *storage.Bucket, fileName string) (string, error) {
 	if system == "cl" {
-		return "", getCLImageFile(client, src, fileName)
+		return getCLImageFile(client, src, fileName)
 	} else {
-		return getFedoraImageFile(client, src, filename)
+		return getFedoraImageFile(client, src, fileName)
 	}
 }
 
@@ -390,7 +393,7 @@ func azurePreRelease(ctx context.Context, system string, client *http.Client, sr
 	}
 
 	// download azure vhd image and unzip it
-	vhdfile, err := getImageFile(client, src, spec.Azure.Image)
+	vhdfile, err := getImageFile(system, client, src, spec.Azure.Image)
 	if err != nil {
 		return err
 	}
@@ -688,11 +691,11 @@ func awsPreRelease(ctx context.Context, system string, client *http.Client, src 
 	imageDescription := fmt.Sprintf("%v %v %v", spec.AWS.BaseDescription, specChannel, specVersion)
 
 	if system == "fedora" {
-		imageName := fmt.Sprintf("")
-		imageDescription := fmt.Sprintf("%v %v %v", spec.AWS.BaseDescription, specChannel, specVersion)
+		imageName = fmt.Sprintf("")
+		imageDescription = fmt.Sprintf("%v %v %v", spec.AWS.BaseDescription, specChannel, specVersion)
 	}
 
-	imagePath, err := getImageFile(client, src, spec.AWS.Image)
+	imagePath, err := getImageFile(system, client, src, spec.AWS.Image)
 	if err != nil {
 		return err
 	}

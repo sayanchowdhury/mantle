@@ -14,33 +14,11 @@
 
 package main
 
-type awsPartitionFedoraSpec struct {
-	Name              string
-	Profile           string
-	Bucket            string
-	BucketRegion      string
-	LaunchPermissions []string
-	Regions           []string
-}
-
-type awsFedoraSpec struct {
-	BaseName        string
-	BaseDescription string
-	Prefix          string
-	Image           string
-	Partitions      []awsPartitionFedoraSpec
-}
-
-type channelFedoraSpec struct {
-	BaseURL string
-	AWS     awsFedoraSpec
-}
-
 var (
 	specFedoraBoard     string
 	awsFedoraBoards     = []string{"amd64-usr"}
-	awsFedoraPartitions = []awsPartitionFedoraSpec{
-		awsPartitionFedoraSpec{
+	awsFedoraPartitions = []awsPartitionSpec{
+		awsPartitionSpec{
 			Name:         "AWS",
 			Profile:      "default",
 			Bucket:       "fedora-s3-prod-bucket-us-east-1",
@@ -55,7 +33,7 @@ var (
 				"us-west-2",
 			},
 		},
-		awsPartitionFedoraSpec{
+		awsPartitionSpec{
 			Name:         "AWS GovCloud",
 			Profile:      "govcloud",
 			Bucket:       "fedora-s3-prod-bucket-us-gov-west-1",
@@ -66,21 +44,21 @@ var (
 		},
 	}
 
-	fedoraSpecs = map[string]channelFedoraSpec{
-		"prod": channelFedoraSpec{
+	fedoraSpecs = map[string]channelSpec{
+		"prod": channelSpec{
 			BaseURL: "https://koji.fedoraproject.org/",
-			AWS: awsFedoraSpec{
+			AWS: awsSpec{
 				BaseName:        "Fedora",
 				BaseDescription: "Fedora AMI",
 				Prefix:          "fedora_production_ami_",
 				Image:           "fedora_production_ami_raw_image.raw.xz",
-				Partitions:      awsFedoraPartitions,
+				Partitions:      awsPartitions,
 			},
 		},
 	}
 )
 
-func ChannelFedoraSpec() channelFedoraSpec {
+func ChannelFedoraSpec() channelSpec {
 	if specChannel == "" {
 		plog.Fatal("--channel is required")
 	}
