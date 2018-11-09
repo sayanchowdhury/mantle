@@ -14,7 +14,12 @@
 
 package main
 
+import (
+	"github.com/coreos/pkg/capnslog"
+)
+
 var (
+	plog                = capnslog.NewPackageLogger("github.com/coreos/mantle", "plume")
 	specFedoraBoard     string
 	awsFedoraBoards     = []string{"amd64-usr"}
 	awsFedoraPartitions = []awsPartitionSpec{
@@ -45,14 +50,53 @@ var (
 	}
 
 	fedoraSpecs = map[string]channelSpec{
-		"prod": channelSpec{
+		"updates": channelSpec{
 			BaseURL: "https://koji.fedoraproject.org/",
 			AWS: awsSpec{
 				BaseName:        "Fedora",
 				BaseDescription: "Fedora AMI",
-				Prefix:          "fedora_production_ami_",
-				Image:           "fedora_production_ami_raw_image.raw.xz",
+				Prefix:          "fedora_{{.Env}}_ami_",
+				Image:           "Fedora-AtomicHost-{{.Version}}-{{.Timestamp}}.{{.Respin}}.x86_64.raw.xz",
 				Partitions:      awsPartitions,
+			},
+		},
+		"twoweek": channelSpec{
+			BaseURL: "https://koji.fedoraproject.org/",
+			AWS: awsSpec{
+				BaseName:        "Fedora",
+				BaseDescription: "Fedora AMI",
+				Prefix:          "fedora_{{.Env}}_ami_",
+				Image:           "Fedora-AtomicHost-{{.Version}}-{{.Timestamp}}.{{.Respin}}.x86_64.raw.xz",
+				Partitions:      awsPartitions,
+			},
+		},
+		"version": channelSpec{
+			BaseURL: "https://koji.fedoraproject.org/",
+			AWS: awsSpec{
+				BaseName:        "Fedora",
+				BaseDescription: "Fedora AMI",
+				Prefix:          "fedora_{{.Env}}_ami_",
+				Image:           "Fedora-{{.Version}}-{{.Timestamp}}.x86_64.raw.xz",
+				Partitions:      awsPartitions,
+			},
+		},
+		"branched": channelSpec{
+			BaseURL: "https://koji.fedoraproject.org",
+			AWS: awsSpec{
+				BaseName:        "Fedora",
+				BaseDescription: "Fedora AMI",
+				Prefix:          "fedora_{{.Env}}_ami_",
+				Image:           "Fedora-{{.ImageType}}-{{.Version}}-{{.Timestamp}}.n.{{.Respin}}.x86_64.raw.xz",
+				Partitions:      awsPartitions,
+			},
+		},
+		"cloud": channelSpec{
+			BaseURL: "https://koji.fedoraproject.org",
+			AWS: awsSpec{
+				BaseName:        "Fedora",
+				BaseDescription: "Fedora AMI",
+				Prefix:          "fedora_{{.Env}}_ami_",
+				Image:           "Fedora-{{.ImageType}}-{{.Version}}-{{.Timestamp}}.x86_64.raw.xz",
 			},
 		},
 	}
