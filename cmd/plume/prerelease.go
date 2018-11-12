@@ -138,6 +138,7 @@ func runFedoraPreRelease(system string, cmd *cobra.Command, args []string) error
 		"Version":   specFedoraVersion,
 		"Timestamp": specTimestamp,
 		"Respin":    specRespin,
+		"ImageType": specImageType,
 	}
 
 	for _, platformName := range platformList {
@@ -696,35 +697,23 @@ func awsPreRelease(ctx context.Context, system string, client *http.Client, src 
 		return nil
 	}
 
+	imageFileNameTmpl := spec.AWS.Image
 	imageName := fmt.Sprintf("%v-%v-%v", spec.AWS.BaseName, specChannel, specVersion)
 	imageName = regexp.MustCompile(`[^A-Za-z0-9()\\./_-]`).ReplaceAllLiteralString(imageName, "_")
 	imageDescription := fmt.Sprintf("%v %v %v", spec.AWS.BaseDescription, specChannel, specVersion)
 
 	if system == "fedora" {
-		imageFileNameTmpl := spec.AWS.Image
 		t := template.Must(template.New("filename").Parse(imageFileNameTmpl))
-		if specChannel == "updates" || specChannel == "twoweek" {
-			builder := &strings.Builder{}
-			if err := t.Execute(builder, imageMetadata); err != nil {
-				panic(err)
-			}
-			s := builder.String()
-			fmt.Println(s)
-
-		} else if specChannel == "version" {
-			fmt.Println("In version")
-		} else if specChannel == "branched" {
-			fmt.Println("In branched")
-		} else if specChannel == "cloud" {
-			fmt.Println("In cloud")
-		} else {
-			fmt.Println("To be skipped")
+		builder := &strings.Builder{}
+		if err := t.Execute(builder, imageMetadata); err != nil {
+			panic(err)
 		}
-		imageName = fmt.Sprintf("")
+		imageFileName := builder.String()
+		imageName = strings.TrimSuffix(imageFileName, ".raw.xz")
 		imageDescription = fmt.Sprintf("%v %v %v", spec.AWS.BaseDescription, specChannel, specVersion)
 	}
 
-	imagePath, err := getImageFile(system, client, src, spec.AWS.Image)
+	imagePath, err := getImageFile(system, client, src, imageFileNameTmpl)
 	if err != nil {
 		return err
 	}
