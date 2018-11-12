@@ -20,6 +20,7 @@ import (
 
 var (
 	specEnv             string
+	specRespin          string
 	specImageType       string
 	specTimestamp       string
 	specFedoraVersion   string
@@ -110,6 +111,7 @@ func AddFedoraSpecFlags(flags *pflag.FlagSet) {
 	flags.StringVarP(&specImageType, "imagetype", "I", "Cloud-Base", "type of image")
 	flags.StringVarP(&specFedoraVersion, "fedoraversion", "F", "29", "fedora release version")
 	flags.StringVarP(&specTimestamp, "timestamp", "T", "20181101", "compose timestamp")
+	flags.StringVarP(&specRespin, "respin", "R", "0", "compose respin")
 }
 
 func ChannelFedoraSpec() channelSpec {
