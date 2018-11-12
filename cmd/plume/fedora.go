@@ -15,11 +15,14 @@
 package main
 
 import (
-	"github.com/coreos/pkg/capnslog"
+	"github.com/spf13/pflag"
 )
 
 var (
-	plog                = capnslog.NewPackageLogger("github.com/coreos/mantle", "plume")
+	specEnv             string
+	specImageType       string
+	specTimestamp       string
+	specFedoraVersion   string
 	specFedoraBoard     string
 	awsFedoraBoards     = []string{"amd64-usr"}
 	awsFedoraPartitions = []awsPartitionSpec{
@@ -101,6 +104,13 @@ var (
 		},
 	}
 )
+
+func AddFedoraSpecFlags(flags *pflag.FlagSet) {
+	flags.StringVarP(&specEnv, "environment", "E", "prod", "instance environment")
+	flags.StringVarP(&specImageType, "imagetype", "I", "Cloud-Base", "type of image")
+	flags.StringVarP(&specFedoraVersion, "fedoraversion", "F", "29", "fedora release version")
+	flags.StringVarP(&specTimestamp, "timestamp", "T", "20181101", "compose timestamp")
+}
 
 func ChannelFedoraSpec() channelSpec {
 	if specChannel == "" {
