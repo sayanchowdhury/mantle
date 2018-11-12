@@ -111,6 +111,7 @@ func init() {
 	cmdPreRelease.Flags().StringVar(&imageInfoFile, "write-image-list", "", "optional output file describing uploaded images")
 
 	AddSpecFlags(cmdPreRelease.Flags())
+	AddFedoraSpecFlags(cmdPreRelease.Flags())
 	root.AddCommand(cmdPreRelease)
 }
 
