@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html/template"
 	"net/http"
 	"net/url"
 	"os"
@@ -83,7 +84,7 @@ var (
 
 type platform struct {
 	displayName string
-	handler     func(context.Context, string, *http.Client, *storage.Bucket, *channelSpec, *imageInfo) error
+	handler     func(context.Context, string, *http.Client, *storage.Bucket, *channelSpec, *imageInfo, *map[string]interface{}) error
 }
 
 type system struct {
@@ -131,6 +132,14 @@ func runFedoraPreRelease(system string, cmd *cobra.Command, args []string) error
 	client := http.Client{}
 
 	var imageInfo imageInfo
+
+	imageMetadata := map[string]interface{}{
+		"Env":       specEnv,
+		"Version":   specFedoraVersion,
+		"Timestamp": specTimestamp,
+		"Respin":    specRespin,
+	}
+
 	for _, platformName := range platformList {
 		run := false
 		for _, v := range selectedPlatforms {
@@ -145,7 +154,7 @@ func runFedoraPreRelease(system string, cmd *cobra.Command, args []string) error
 
 		platform := platforms[platformName]
 		plog.Printf("Running %v pre-release...", platform.displayName)
-		if err := platform.handler(ctx, system, &client, nil, &spec, &imageInfo); err != nil {
+		if err := platform.handler(ctx, system, &client, nil, &spec, &imageInfo, &imageMetadata); err != nil {
 			plog.Fatal(err)
 		}
 	}
@@ -200,7 +209,7 @@ func runCLPreRelease(system string, cmd *cobra.Command, args []string) error {
 
 		platform := platforms[platformName]
 		plog.Printf("Running %v pre-release...", platform.displayName)
-		if err := platform.handler(ctx, system, client, src, &spec, &imageInfo); err != nil {
+		if err := platform.handler(ctx, system, client, src, &spec, &imageInfo, nil); err != nil {
 			plog.Fatal(err)
 		}
 	}
@@ -382,7 +391,7 @@ type azureImageInfo struct {
 //
 // This includes uploading the vhd image to Azure storage, creating an OS image from it,
 // and replicating that OS image.
-func azurePreRelease(ctx context.Context, system string, client *http.Client, src *storage.Bucket, spec *channelSpec, imageInfo *imageInfo) error {
+func azurePreRelease(ctx context.Context, system string, client *http.Client, src *storage.Bucket, spec *channelSpec, imageInfo *imageInfo, imageMetadata *map[string]interface{}) error {
 	if spec.Azure.StorageAccount == "" {
 		plog.Notice("Azure image creation disabled.")
 		return nil
@@ -681,7 +690,7 @@ func awsUploadAmiLists(ctx context.Context, bucket *storage.Bucket, spec *channe
 // This includes uploading the ami_vmdk image to an S3 bucket in each EC2
 // partition, creating HVM and PV AMIs, and replicating the AMIs to each
 // region.
-func awsPreRelease(ctx context.Context, system string, client *http.Client, src *storage.Bucket, spec *channelSpec, imageInfo *imageInfo) error {
+func awsPreRelease(ctx context.Context, system string, client *http.Client, src *storage.Bucket, spec *channelSpec, imageInfo *imageInfo, imageMetadata *map[string]interface{}) error {
 	if spec.AWS.Image == "" {
 		plog.Notice("AWS image creation disabled.")
 		return nil
@@ -692,6 +701,25 @@ func awsPreRelease(ctx context.Context, system string, client *http.Client, src 
 	imageDescription := fmt.Sprintf("%v %v %v", spec.AWS.BaseDescription, specChannel, specVersion)
 
 	if system == "fedora" {
+		imageFileNameTmpl := spec.AWS.Image
+		t := template.Must(template.New("filename").Parse(imageFileNameTmpl))
+		if specChannel == "updates" || specChannel == "twoweek" {
+			builder := &strings.Builder{}
+			if err := t.Execute(builder, imageMetadata); err != nil {
+				panic(err)
+			}
+			s := builder.String()
+			fmt.Println(s)
+
+		} else if specChannel == "version" {
+			fmt.Println("In version")
+		} else if specChannel == "branched" {
+			fmt.Println("In branched")
+		} else if specChannel == "cloud" {
+			fmt.Println("In cloud")
+		} else {
+			fmt.Println("To be skipped")
+		}
 		imageName = fmt.Sprintf("")
 		imageDescription = fmt.Sprintf("%v %v %v", spec.AWS.BaseDescription, specChannel, specVersion)
 	}
