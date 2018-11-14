@@ -704,11 +704,11 @@ func awsPreRelease(ctx context.Context, system string, client *http.Client, src 
 
 	if system == "fedora" {
 		t := template.Must(template.New("filename").Parse(imageFileNameTmpl))
-		builder := &strings.Builder{}
-		if err := t.Execute(builder, imageMetadata); err != nil {
+		buffer := &bytes.Buffer{}
+		if err := t.Execute(buffer, imageMetadata); err != nil {
 			panic(err)
 		}
-		imageFileName := builder.String()
+		imageFileName := buffer.String()
 		imageName = strings.TrimSuffix(imageFileName, ".raw.xz")
 		imageDescription = fmt.Sprintf("%v %v %v", spec.AWS.BaseDescription, specChannel, specVersion)
 	}
