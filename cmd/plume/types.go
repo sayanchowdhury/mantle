@@ -72,6 +72,7 @@ type awsSpec struct {
 
 type channelSpec struct {
 	BaseURL      string // Copy from $BaseURL/$Board/$Version
+	System       string
 	Boards       []string
 	Destinations []storageSpec
 	GCE          gceSpec

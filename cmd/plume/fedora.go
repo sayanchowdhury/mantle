@@ -30,10 +30,10 @@ var (
 		awsPartitionSpec{
 			Name:         "AWS",
 			Profile:      "default",
-			Bucket:       "fedora-s3-prod-bucket-us-east-1",
-			BucketRegion: "us-west-2",
+			Bucket:       "fedora-s3-bucket-fedimg-test",
+			BucketRegion: "us-east-1",
 			LaunchPermissions: []string{
-				"0123456789",
+				"013116697141",
 			},
 			Regions: []string{
 				"us-east-1",
@@ -42,65 +42,62 @@ var (
 				"us-west-2",
 			},
 		},
-		awsPartitionSpec{
-			Name:         "AWS GovCloud",
-			Profile:      "govcloud",
-			Bucket:       "fedora-s3-prod-bucket-us-gov-west-1",
-			BucketRegion: "us-gov-west-1",
-			Regions: []string{
-				"us-gov-west-1",
-			},
-		},
 	}
 
 	fedoraSpecs = map[string]channelSpec{
 		"updates": channelSpec{
 			BaseURL: "https://koji.fedoraproject.org/",
+			System:  "Fedora",
 			AWS: awsSpec{
 				BaseName:        "Fedora",
 				BaseDescription: "Fedora AMI",
 				Prefix:          "fedora_{{.Env}}_ami_",
 				Image:           "Fedora-AtomicHost-{{.Version}}-{{.Timestamp}}.{{.Respin}}.x86_64.raw.xz",
-				Partitions:      awsPartitions,
+				Partitions:      awsFedoraPartitions,
 			},
 		},
 		"twoweek": channelSpec{
 			BaseURL: "https://koji.fedoraproject.org/",
+			System:  "Fedora",
 			AWS: awsSpec{
 				BaseName:        "Fedora",
 				BaseDescription: "Fedora AMI",
 				Prefix:          "fedora_{{.Env}}_ami_",
 				Image:           "Fedora-AtomicHost-{{.Version}}-{{.Timestamp}}.{{.Respin}}.x86_64.raw.xz",
-				Partitions:      awsPartitions,
+				Partitions:      awsFedoraPartitions,
 			},
 		},
 		"version": channelSpec{
 			BaseURL: "https://koji.fedoraproject.org/",
+			System:  "Fedora",
 			AWS: awsSpec{
 				BaseName:        "Fedora",
 				BaseDescription: "Fedora AMI",
 				Prefix:          "fedora_{{.Env}}_ami_",
 				Image:           "Fedora-{{.Version}}-{{.Timestamp}}.x86_64.raw.xz",
-				Partitions:      awsPartitions,
+				Partitions:      awsFedoraPartitions,
 			},
 		},
 		"branched": channelSpec{
 			BaseURL: "https://koji.fedoraproject.org",
+			System:  "Fedora",
 			AWS: awsSpec{
 				BaseName:        "Fedora",
 				BaseDescription: "Fedora AMI",
 				Prefix:          "fedora_{{.Env}}_ami_",
 				Image:           "Fedora-{{.ImageType}}-{{.Version}}-{{.Timestamp}}.n.{{.Respin}}.x86_64.raw.xz",
-				Partitions:      awsPartitions,
+				Partitions:      awsFedoraPartitions,
 			},
 		},
 		"cloud": channelSpec{
 			BaseURL: "https://koji.fedoraproject.org",
+			System:  "Fedora",
 			AWS: awsSpec{
 				BaseName:        "Fedora",
 				BaseDescription: "Fedora AMI",
 				Prefix:          "fedora_{{.Env}}_ami_",
 				Image:           "Fedora-{{.ImageType}}-{{.Version}}-{{.Timestamp}}.x86_64.raw.xz",
+				Partitions:      awsFedoraPartitions,
 			},
 		},
 	}
