@@ -236,10 +236,8 @@ func runCLPreRelease(system string, cmd *cobra.Command, args []string) error {
 func runPreRelease(cmd *cobra.Command, args []string) error {
 	if systemInfo, ok := systems[selectedSystem]; !ok {
 		return fmt.Errorf("Unknown system %q", selectedSystem)
-	} else {
-		if err := systemInfo.handler(selectedSystem, cmd, args); err != nil {
-			plog.Fatal(err)
-		}
+	} else if err := systemInfo.handler(selectedSystem, cmd, args); err != nil {
+		plog.Fatal(err)
 	}
 
 	plog.Printf("Pre-release complete, run `plume release` to finish.")
