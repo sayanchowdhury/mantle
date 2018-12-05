@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -280,7 +281,7 @@ func getCLImageFile(client *http.Client, src *storage.Bucket, fileName string) (
 }
 
 func getFedoraImageFile(client *http.Client, src *storage.Bucket, fileName string) (string, error) {
-	cacheDir := filepath.Join(sdk.RepoCache(), "images", specChannel, specBoard, specVersion)
+	cacheDir := filepath.Join(sdk.RepoCache(), "images", specChannel, specFedoraBoard, specFedoraVersion)
 	rawxzPath := filepath.Join(cacheDir, fileName)
 	imagePath := strings.TrimSuffix(rawxzPath, filepath.Ext(rawxzPath))
 
@@ -289,7 +290,7 @@ func getFedoraImageFile(client *http.Client, src *storage.Bucket, fileName strin
 		return imagePath, nil
 	}
 
-	rawxzURI, err := url.Parse(fileName)
+	rawxzURI, err := url.Parse("https://kojipkgs.fedoraproject.org/compose/cloud/Fedora-Cloud-29-20181114.0/compose/Cloud/x86_64/images/Fedora-Cloud-Base-29-20181114.0.x86_64.raw.xz")
 	if err != nil {
 		return "", err
 	}
@@ -477,7 +478,27 @@ func azurePreRelease(ctx context.Context, system string, client *http.Client, sr
 	return nil
 }
 
-func awsUploadToPartition(spec *channelSpec, part *awsPartitionSpec, imageName, imageDescription, imagePath string) (map[string]string, map[string]string, error) {
+func getSpecAWSImageName(spec *channelSpec, imageMetadata *map[string]interface{}) (string, string, string) {
+	imageFileName := spec.AWS.Image
+	imageName := fmt.Sprintf("%v-%v-%v", spec.AWS.BaseName, specChannel, specVersion)
+	imageName = regexp.MustCompile(`[^A-Za-z0-9()\\./_-]`).ReplaceAllLiteralString(imageName, "_")
+	imageDescription := fmt.Sprintf("%v %v %v", spec.AWS.BaseDescription, specChannel, specVersion)
+
+	if spec.System == "Fedora" {
+		t := template.Must(template.New("filename").Parse(imageFileName))
+		buffer := &bytes.Buffer{}
+		if err := t.Execute(buffer, imageMetadata); err != nil {
+			panic(err)
+		}
+		imageFileName = buffer.String()
+		imageName = strings.TrimSuffix(imageFileName, ".raw.xz")
+		imageDescription = fmt.Sprintf("%v %v %v", spec.AWS.BaseDescription, specChannel, specVersion)
+	}
+
+	return imageFileName, imageName, imageDescription
+}
+
+func awsUploadToPartition(spec *channelSpec, part *awsPartitionSpec, imageName, imageDescription, imagePath string, imageMetadata *map[string]interface{}) (map[string]string, map[string]string, error) {
 	plog.Printf("Connecting to %v...", part.Name)
 	api, err := aws.New(&aws.Options{
 		CredentialsFile: awsCredentialsFile,
@@ -494,7 +515,11 @@ func awsUploadToPartition(spec *channelSpec, part *awsPartitionSpec, imageName, 
 	}
 	defer f.Close()
 
-	s3ObjectPath := fmt.Sprintf("%s/%s/%s", specBoard, specVersion, strings.TrimSuffix(spec.AWS.Image, filepath.Ext(spec.AWS.Image)))
+	imageFileName, imageName, imageDescription := getSpecAWSImageName(spec, imageMetadata)
+	s3ObjectPath := fmt.Sprintf("%s/%s/%s", specBoard, specVersion, strings.TrimSuffix(imageFileName, filepath.Ext(imageFileName)))
+	if spec.System == "Fedora" {
+		s3ObjectPath = fmt.Sprintf("%s/%s/%s", specBoard, specFedoraVersion, strings.TrimSuffix(imageFileName, filepath.Ext(imageFileName)))
+	}
 	s3ObjectURL := fmt.Sprintf("s3://%s/%s", part.Bucket, s3ObjectPath)
 
 	snapshot, err := api.FindSnapshot(imageName)
@@ -699,30 +724,23 @@ func awsPreRelease(ctx context.Context, system string, client *http.Client, src 
 		return nil
 	}
 
-	imageFileNameTmpl := spec.AWS.Image
-	imageName := fmt.Sprintf("%v-%v-%v", spec.AWS.BaseName, specChannel, specVersion)
-	imageName = regexp.MustCompile(`[^A-Za-z0-9()\\./_-]`).ReplaceAllLiteralString(imageName, "_")
-	imageDescription := fmt.Sprintf("%v %v %v", spec.AWS.BaseDescription, specChannel, specVersion)
-
-	if system == "fedora" {
-		t := template.Must(template.New("filename").Parse(imageFileNameTmpl))
-		buffer := &bytes.Buffer{}
-		if err := t.Execute(buffer, imageMetadata); err != nil {
-			panic(err)
-		}
-		imageFileName := buffer.String()
-		imageName = strings.TrimSuffix(imageFileName, ".raw.xz")
-		imageDescription = fmt.Sprintf("%v %v %v", spec.AWS.BaseDescription, specChannel, specVersion)
+	imageFileName, imageName, imageDescription := getSpecAWSImageName(spec, imageMetadata)
+	imagePath, err := getImageFile(system, client, src, imageFileName)
+	if err != nil {
+		return err
 	}
 
-	imagePath, err := getImageFile(system, client, src, imageFileNameTmpl)
+	vmdkImagePath := strings.Replace(imagePath, "raw", "vmdk", 1)
+	cmd := exec.Command("qemu-img", "convert", "-f", "raw", "-O", "vmdk", "-o", "adapter_type=lsilogic,subformat=streamOptimized,compat6", imagePath, vmdkImagePath)
+	_, err = cmd.CombinedOutput()
+	imagePath = vmdkImagePath
 	if err != nil {
 		return err
 	}
 
 	var amis amiList
 	for i := range spec.AWS.Partitions {
-		hvmAmis, pvAmis, err := awsUploadToPartition(spec, &spec.AWS.Partitions[i], imageName, imageDescription, imagePath)
+		hvmAmis, pvAmis, err := awsUploadToPartition(spec, &spec.AWS.Partitions[i], imageName, imageDescription, imagePath, imageMetadata)
 		if err != nil {
 			return err
 		}
@@ -736,8 +754,10 @@ func awsPreRelease(ctx context.Context, system string, client *http.Client, src 
 		}
 	}
 
-	if err := awsUploadAmiLists(ctx, src, spec, &amis); err != nil {
-		return fmt.Errorf("uploading AMI IDs: %v", err)
+	if system == "cl" {
+		if err := awsUploadAmiLists(ctx, src, spec, &amis); err != nil {
+			return fmt.Errorf("uploading AMI IDs: %v", err)
+		}
 	}
 
 	imageInfo.AWS = &amis
