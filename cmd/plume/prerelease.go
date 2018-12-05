@@ -478,7 +478,7 @@ func azurePreRelease(ctx context.Context, system string, client *http.Client, sr
 	return nil
 }
 
-func getSpecAWSImageName(spec *channelSpec, imageMetadata *map[string]interface{}) (string, string, string) {
+func getSpecAWSImageName(spec *channelSpec, imageMetadata *map[string]interface{}) (map[string]string, error) {
 	imageFileName := spec.AWS.Image
 	imageName := fmt.Sprintf("%v-%v-%v", spec.AWS.BaseName, specChannel, specVersion)
 	imageName = regexp.MustCompile(`[^A-Za-z0-9()\\./_-]`).ReplaceAllLiteralString(imageName, "_")
@@ -488,14 +488,20 @@ func getSpecAWSImageName(spec *channelSpec, imageMetadata *map[string]interface{
 		t := template.Must(template.New("filename").Parse(imageFileName))
 		buffer := &bytes.Buffer{}
 		if err := t.Execute(buffer, imageMetadata); err != nil {
-			panic(err)
+			return nil, err
 		}
 		imageFileName = buffer.String()
 		imageName = strings.TrimSuffix(imageFileName, ".raw.xz")
 		imageDescription = fmt.Sprintf("%v %v %v", spec.AWS.BaseDescription, specChannel, specVersion)
 	}
 
-	return imageFileName, imageName, imageDescription
+	awsImageMeta := map[string]string{
+		"imageFileName":    imageFileName,
+		"imageName":        imageName,
+		"imageDescription": imageDescription,
+	}
+
+	return awsImageMeta, nil
 }
 
 func awsUploadToPartition(spec *channelSpec, part *awsPartitionSpec, imageName, imageDescription, imagePath string, imageMetadata *map[string]interface{}) (map[string]string, map[string]string, error) {
@@ -515,7 +521,15 @@ func awsUploadToPartition(spec *channelSpec, part *awsPartitionSpec, imageName, 
 	}
 	defer f.Close()
 
-	imageFileName, imageName, imageDescription := getSpecAWSImageName(spec, imageMetadata)
+	imageData, err := getSpecAWSImageName(spec, imageMetadata)
+	if err != nil {
+		return nil, nil, fmt.Errorf("Could not generate the image filname: %v", err)
+	}
+
+	imageFileName := imageData["imageFileName"]
+	imageName = imageData["imageName"]
+	imageDescription = imageData["imageDescription"]
+
 	s3ObjectPath := fmt.Sprintf("%s/%s/%s", specBoard, specVersion, strings.TrimSuffix(imageFileName, filepath.Ext(imageFileName)))
 	if spec.System == "Fedora" {
 		s3ObjectPath = fmt.Sprintf("%s/%s/%s", specBoard, specFedoraVersion, strings.TrimSuffix(imageFileName, filepath.Ext(imageFileName)))
@@ -724,7 +738,15 @@ func awsPreRelease(ctx context.Context, system string, client *http.Client, src 
 		return nil
 	}
 
-	imageFileName, imageName, imageDescription := getSpecAWSImageName(spec, imageMetadata)
+	imageData, err := getSpecAWSImageName(spec, imageMetadata)
+	if err != nil {
+		return fmt.Errorf("Could not generate the image filname: %v", err)
+	}
+
+	imageFileName := imageData["imageFileName"]
+	imageName := imageData["imageName"]
+	imageDescription := imageData["imageDescription"]
+
 	imagePath, err := getImageFile(system, client, src, imageFileName)
 	if err != nil {
 		return err
