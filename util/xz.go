@@ -43,6 +43,7 @@ func XZ2File(dst, src string) error {
 	_, err = io.Copy(out, reader)
 	if err != nil {
 		os.Remove(dst)
+		return err
 	}
-	return err
+	return nil
 }
