@@ -288,6 +288,12 @@ func getFedoraImageFile(client *http.Client, src *storage.Bucket, fileName strin
 	if err := sdk.UpdateFile(rawxzPath, rawxzURI.String(), client); err != nil {
 		return "", err
 	}
+
+	//decompress it
+	plog.Printf("Decompressing %q...", rawxzPath)
+	if err := util.XZ2File(imagePath, rawxzPath); err != nil {
+		return "", err
+	}
 	return imagePath, nil
 }
 
