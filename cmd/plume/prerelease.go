@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html/template"
 	"net/http"
 	"net/url"
 	"os"
@@ -83,7 +84,7 @@ var (
 
 type platform struct {
 	displayName string
-	handler     func(context.Context, string, *http.Client, *storage.Bucket, *channelSpec, *imageInfo) error
+	handler     func(context.Context, string, *http.Client, *storage.Bucket, *channelSpec, *imageInfo, *map[string]interface{}) error
 }
 
 type system struct {
@@ -111,6 +112,7 @@ func init() {
 	cmdPreRelease.Flags().StringVar(&imageInfoFile, "write-image-list", "", "optional output file describing uploaded images")
 
 	AddSpecFlags(cmdPreRelease.Flags())
+	AddFedoraSpecFlags(cmdPreRelease.Flags())
 	root.AddCommand(cmdPreRelease)
 }
 
@@ -130,6 +132,15 @@ func runFedoraPreRelease(system string, cmd *cobra.Command, args []string) error
 	client := http.Client{}
 
 	var imageInfo imageInfo
+
+	imageMetadata := map[string]interface{}{
+		"Env":       specEnv,
+		"Version":   specFedoraVersion,
+		"Timestamp": specTimestamp,
+		"Respin":    specRespin,
+		"ImageType": specImageType,
+	}
+
 	for _, platformName := range platformList {
 		run := false
 		for _, v := range selectedPlatforms {
@@ -144,7 +155,7 @@ func runFedoraPreRelease(system string, cmd *cobra.Command, args []string) error
 
 		platform := platforms[platformName]
 		plog.Printf("Running %v pre-release...", platform.displayName)
-		if err := platform.handler(ctx, system, &client, nil, &spec, &imageInfo); err != nil {
+		if err := platform.handler(ctx, system, &client, nil, &spec, &imageInfo, &imageMetadata); err != nil {
 			plog.Fatal(err)
 		}
 	}
@@ -199,7 +210,7 @@ func runCLPreRelease(system string, cmd *cobra.Command, args []string) error {
 
 		platform := platforms[platformName]
 		plog.Printf("Running %v pre-release...", platform.displayName)
-		if err := platform.handler(ctx, system, client, src, &spec, &imageInfo); err != nil {
+		if err := platform.handler(ctx, system, client, src, &spec, &imageInfo, nil); err != nil {
 			plog.Fatal(err)
 		}
 	}
@@ -383,7 +394,7 @@ type azureImageInfo struct {
 //
 // This includes uploading the vhd image to Azure storage, creating an OS image from it,
 // and replicating that OS image.
-func azurePreRelease(ctx context.Context, system string, client *http.Client, src *storage.Bucket, spec *channelSpec, imageInfo *imageInfo) error {
+func azurePreRelease(ctx context.Context, system string, client *http.Client, src *storage.Bucket, spec *channelSpec, imageInfo *imageInfo, imageMetadata *map[string]interface{}) error {
 	if spec.Azure.StorageAccount == "" {
 		plog.Notice("Azure image creation disabled.")
 		return nil
@@ -682,22 +693,29 @@ func awsUploadAmiLists(ctx context.Context, bucket *storage.Bucket, spec *channe
 // This includes uploading the ami_vmdk image to an S3 bucket in each EC2
 // partition, creating HVM and PV AMIs, and replicating the AMIs to each
 // region.
-func awsPreRelease(ctx context.Context, system string, client *http.Client, src *storage.Bucket, spec *channelSpec, imageInfo *imageInfo) error {
+func awsPreRelease(ctx context.Context, system string, client *http.Client, src *storage.Bucket, spec *channelSpec, imageInfo *imageInfo, imageMetadata *map[string]interface{}) error {
 	if spec.AWS.Image == "" {
 		plog.Notice("AWS image creation disabled.")
 		return nil
 	}
 
+	imageFileNameTmpl := spec.AWS.Image
 	imageName := fmt.Sprintf("%v-%v-%v", spec.AWS.BaseName, specChannel, specVersion)
 	imageName = regexp.MustCompile(`[^A-Za-z0-9()\\./_-]`).ReplaceAllLiteralString(imageName, "_")
 	imageDescription := fmt.Sprintf("%v %v %v", spec.AWS.BaseDescription, specChannel, specVersion)
 
 	if system == "fedora" {
-		imageName = fmt.Sprintf("")
+		t := template.Must(template.New("filename").Parse(imageFileNameTmpl))
+		buffer := &bytes.Buffer{}
+		if err := t.Execute(buffer, imageMetadata); err != nil {
+			panic(err)
+		}
+		imageFileName := buffer.String()
+		imageName = strings.TrimSuffix(imageFileName, ".raw.xz")
 		imageDescription = fmt.Sprintf("%v %v %v", spec.AWS.BaseDescription, specChannel, specVersion)
 	}
 
-	imagePath, err := getImageFile(system, client, src, spec.AWS.Image)
+	imagePath, err := getImageFile(system, client, src, imageFileNameTmpl)
 	if err != nil {
 		return err
 	}
