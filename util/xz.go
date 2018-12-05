@@ -27,13 +27,13 @@ func XZ2File(dst, src string) error {
 	if err != nil {
 		return err
 	}
-
 	defer in.Close()
 
 	out, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
 		return err
 	}
+	defer out.Close()
 
 	reader, err := xz.NewReader(in)
 	if err != nil {
