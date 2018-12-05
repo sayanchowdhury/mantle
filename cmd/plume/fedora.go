@@ -15,6 +15,8 @@
 package main
 
 import (
+	"fmt"
+
 	"github.com/spf13/pflag"
 )
 
@@ -111,15 +113,15 @@ func AddFedoraSpecFlags(flags *pflag.FlagSet) {
 	flags.StringVarP(&specRespin, "respin", "R", "0", "compose respin")
 }
 
-func ChannelFedoraSpec() channelSpec {
+func ChannelFedoraSpec() (channelSpec, error) {
 	if specChannel == "" {
-		plog.Fatal("--channel is required")
+		return nil, fmt.Errorf("Unknown Channel %q", specChannel)
 	}
 
 	spec, ok := fedoraSpecs[specChannel]
 	if !ok {
-		plog.Fatalf("Unknown channel: %s", specChannel)
+		return nil, fmt.Errorf("Unknown channel: %q", specChannel)
 	}
 
-	return spec
+	return spec, nil
 }
