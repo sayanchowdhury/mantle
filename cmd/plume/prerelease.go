@@ -83,12 +83,12 @@ var (
 
 type platform struct {
 	displayName string
-	handler     func(context.Context, *http.Client, *storage.Bucket, *channelSpec, *imageInfo) error
+	handler     func(context.Context, string, *http.Client, *storage.Bucket, *channelSpec, *imageInfo) error
 }
 
 type system struct {
 	displayName string
-	handler     func(*cobra.Command, []string) error
+	handler     func(string, *cobra.Command, []string) error
 }
 
 type imageInfo struct {
@@ -114,11 +114,45 @@ func init() {
 	root.AddCommand(cmdPreRelease)
 }
 
-func runFedoraPreRelease(cmd *cobra.Command, args []string) error {
+func runFedoraPreRelease(system string, cmd *cobra.Command, args []string) error {
+	if len(args) > 0 {
+		return errors.New("no args accepted")
+	}
+
+	for _, platformName := range selectedPlatforms {
+		if _, ok := platforms[platformName]; !ok {
+			return fmt.Errorf("Unknown platform %q", platformName)
+		}
+	}
+
+	spec := ChannelFedoraSpec()
+	ctx := context.Background()
+	client := http.Client{}
+
+	var imageInfo imageInfo
+	for _, platformName := range platformList {
+		run := false
+		for _, v := range selectedPlatforms {
+			if v == platformName {
+				run = true
+				break
+			}
+		}
+		if !run {
+			continue
+		}
+
+		platform := platforms[platformName]
+		plog.Printf("Running %v pre-release...", platform.displayName)
+		if err := platform.handler(ctx, system, &client, nil, &spec, &imageInfo); err != nil {
+			plog.Fatal(err)
+		}
+	}
+
 	return nil
 }
 
-func runCLPreRelease(cmd *cobra.Command, args []string) error {
+func runCLPreRelease(system string, cmd *cobra.Command, args []string) error {
 	if len(args) > 0 {
 		return errors.New("no args accepted")
 	}
@@ -165,7 +199,7 @@ func runCLPreRelease(cmd *cobra.Command, args []string) error {
 
 		platform := platforms[platformName]
 		plog.Printf("Running %v pre-release...", platform.displayName)
-		if err := platform.handler(ctx, client, src, &spec, &imageInfo); err != nil {
+		if err := platform.handler(ctx, system, client, src, &spec, &imageInfo); err != nil {
 			plog.Fatal(err)
 		}
 	}
@@ -188,12 +222,12 @@ func runCLPreRelease(cmd *cobra.Command, args []string) error {
 }
 
 func runPreRelease(cmd *cobra.Command, args []string) error {
-	if systemHandler, ok := systems[selectedSystem]; !ok {
+	if systemInfo, ok := systems[selectedSystem]; !ok {
 		return fmt.Errorf("Unknown system %q", selectedSystem)
-	}
-
-	if err := systemHandler(&cmd, args); err != nil {
-		plog.Fatal(err)
+	} else {
+		if err := systemInfo.handler(selectedSystem, cmd, args); err != nil {
+			plog.Fatal(err)
+		}
 	}
 
 	plog.Printf("Pre-release complete, run `plume release` to finish.")
@@ -201,9 +235,9 @@ func runPreRelease(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// getImageFile downloads a bzipped CoreOS image, verifies its signature,
+// getCLImageFile downloads a bzipped CoreOS image, verifies its signature,
 // decompresses it, and returns the decompressed path.
-func getImageFile(client *http.Client, src *storage.Bucket, fileName string) (string, error) {
+func getCLImageFile(client *http.Client, src *storage.Bucket, fileName string) (string, error) {
 	cacheDir := filepath.Join(sdk.RepoCache(), "images", specChannel, specBoard, specVersion)
 	bzipPath := filepath.Join(cacheDir, fileName)
 	imagePath := strings.TrimSuffix(bzipPath, filepath.Ext(bzipPath))
@@ -232,6 +266,39 @@ func getImageFile(client *http.Client, src *storage.Bucket, fileName string) (st
 		return "", err
 	}
 	return imagePath, nil
+}
+
+func getFedoraImageFile(client *http.Client, src *storage.Bucket, fileName string) (string, error) {
+	cacheDir := filepath.Join(sdk.RepoCache(), "images", specChannel, specBoard, specVersion)
+	rawxzPath := filepath.Join(cacheDir, fileName)
+	imagePath := strings.TrimSuffix(rawxzPath, filepath.Ext(rawxzPath))
+
+	if _, err := os.Stat(imagePath); err == nil {
+		plog.Printf("Reusing existing image %q", imagePath)
+		return imagePath, nil
+	}
+
+	rawxzURI, err := url.Parse(fileName)
+	if err != nil {
+		return "", err
+	}
+
+	plog.Printf("Downloading image %q to %q", rawxzURI, rawxzPath)
+
+	if err := sdk.UpdateFile(rawxzPath, rawxzURI.String(), client); err != nil {
+		return "", err
+	}
+	return imagePath, nil
+}
+
+// getImageFile downloads a bzipped CoreOS image, verifies its signature,
+// decompresses it, and returns the decompressed path.
+func getImageFile(system string, client *http.Client, src *storage.Bucket, fileName string) (string, error) {
+	if system == "cl" {
+		return getCLImageFile(client, src, fileName)
+	} else {
+		return getFedoraImageFile(client, src, fileName)
+	}
 }
 
 func uploadAzureBlob(spec *channelSpec, api *azure.API, storageKey storageservice.GetStorageServiceKeysResponse, vhdfile, container, blobName string) error {
@@ -310,7 +377,7 @@ type azureImageInfo struct {
 //
 // This includes uploading the vhd image to Azure storage, creating an OS image from it,
 // and replicating that OS image.
-func azurePreRelease(ctx context.Context, client *http.Client, src *storage.Bucket, spec *channelSpec, imageInfo *imageInfo) error {
+func azurePreRelease(ctx context.Context, system string, client *http.Client, src *storage.Bucket, spec *channelSpec, imageInfo *imageInfo) error {
 	if spec.Azure.StorageAccount == "" {
 		plog.Notice("Azure image creation disabled.")
 		return nil
@@ -322,7 +389,7 @@ func azurePreRelease(ctx context.Context, client *http.Client, src *storage.Buck
 	}
 
 	// download azure vhd image and unzip it
-	vhdfile, err := getImageFile(client, src, spec.Azure.Image)
+	vhdfile, err := getImageFile(system, client, src, spec.Azure.Image)
 	if err != nil {
 		return err
 	}
@@ -609,7 +676,7 @@ func awsUploadAmiLists(ctx context.Context, bucket *storage.Bucket, spec *channe
 // This includes uploading the ami_vmdk image to an S3 bucket in each EC2
 // partition, creating HVM and PV AMIs, and replicating the AMIs to each
 // region.
-func awsPreRelease(ctx context.Context, client *http.Client, src *storage.Bucket, spec *channelSpec, imageInfo *imageInfo) error {
+func awsPreRelease(ctx context.Context, system string, client *http.Client, src *storage.Bucket, spec *channelSpec, imageInfo *imageInfo) error {
 	if spec.AWS.Image == "" {
 		plog.Notice("AWS image creation disabled.")
 		return nil
@@ -619,7 +686,12 @@ func awsPreRelease(ctx context.Context, client *http.Client, src *storage.Bucket
 	imageName = regexp.MustCompile(`[^A-Za-z0-9()\\./_-]`).ReplaceAllLiteralString(imageName, "_")
 	imageDescription := fmt.Sprintf("%v %v %v", spec.AWS.BaseDescription, specChannel, specVersion)
 
-	imagePath, err := getImageFile(client, src, spec.AWS.Image)
+	if system == "fedora" {
+		imageName = fmt.Sprintf("")
+		imageDescription = fmt.Sprintf("%v %v %v", spec.AWS.BaseDescription, specChannel, specVersion)
+	}
+
+	imagePath, err := getImageFile(system, client, src, spec.AWS.Image)
 	if err != nil {
 		return err
 	}
