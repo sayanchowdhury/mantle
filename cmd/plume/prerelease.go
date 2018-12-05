@@ -62,7 +62,19 @@ var (
 	}
 	platformList []string
 
+	systems = map[string]system{
+		"cl": system{
+			displayName: "ContainerLinux",
+			handler:     runCLPreRelease,
+		},
+		"fedora": system{
+			displayName: "Fedora",
+			handler:     runFedoraPreRelease,
+		},
+	}
+
 	selectedPlatforms  []string
+	selectedSystem     string
 	azureProfile       string
 	awsCredentialsFile string
 	verifyKeyFile      string
@@ -72,6 +84,11 @@ var (
 type platform struct {
 	displayName string
 	handler     func(context.Context, *http.Client, *storage.Bucket, *channelSpec, *imageInfo) error
+}
+
+type system struct {
+	displayName string
+	handler     func(*cobra.Command, []string) error
 }
 
 type imageInfo struct {
@@ -86,6 +103,7 @@ func init() {
 	sort.Sort(sort.StringSlice(platformList))
 
 	cmdPreRelease.Flags().StringSliceVar(&selectedPlatforms, "platform", platformList, "platform to pre-release")
+	cmdPreRelease.Flags().StringVar(&selectedSystem, "system", "", "system to pre-release")
 	cmdPreRelease.Flags().StringVar(&azureProfile, "azure-profile", "", "Azure Profile json file")
 	cmdPreRelease.Flags().StringVar(&awsCredentialsFile, "aws-credentials", "", "AWS credentials file")
 	cmdPreRelease.Flags().StringVar(&verifyKeyFile,
@@ -96,7 +114,11 @@ func init() {
 	root.AddCommand(cmdPreRelease)
 }
 
-func runPreRelease(cmd *cobra.Command, args []string) error {
+func runFedoraPreRelease(cmd *cobra.Command, args []string) error {
+	return nil
+}
+
+func runCLPreRelease(cmd *cobra.Command, args []string) error {
 	if len(args) > 0 {
 		return errors.New("no args accepted")
 	}
@@ -160,6 +182,18 @@ func runPreRelease(cmd *cobra.Command, args []string) error {
 		if err := encoder.Encode(imageInfo); err != nil {
 			plog.Fatalf("couldn't encode image list: %v", err)
 		}
+	}
+
+	return nil
+}
+
+func runPreRelease(cmd *cobra.Command, args []string) error {
+	if systemHandler, ok := systems[selectedSystem]; !ok {
+		return fmt.Errorf("Unknown system %q", selectedSystem)
+	}
+
+	if err := systemHandler(&cmd, args); err != nil {
+		plog.Fatal(err)
 	}
 
 	plog.Printf("Pre-release complete, run `plume release` to finish.")
