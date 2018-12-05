@@ -105,7 +105,7 @@ func init() {
 	sort.Sort(sort.StringSlice(platformList))
 
 	cmdPreRelease.Flags().StringSliceVar(&selectedPlatforms, "platform", platformList, "platform to pre-release")
-	cmdPreRelease.Flags().StringVar(&selectedSystem, "system", "", "system to pre-release")
+	cmdPreRelease.Flags().StringVar(&selectedSystem, "system", "cl", "system to pre-release")
 	cmdPreRelease.Flags().StringVar(&azureProfile, "azure-profile", "", "Azure Profile json file")
 	cmdPreRelease.Flags().StringVar(&awsCredentialsFile, "aws-credentials", "", "AWS credentials file")
 	cmdPreRelease.Flags().StringVar(&verifyKeyFile,
