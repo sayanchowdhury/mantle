@@ -750,12 +750,19 @@ func awsPreRelease(ctx context.Context, system string, client *http.Client, src 
 		return err
 	}
 
-	vmdkImagePath := strings.Replace(imagePath, "raw", "vmdk", 1)
-	cmd := exec.Command("qemu-img", "convert", "-f", "raw", "-O", "vmdk", "-o", "adapter_type=lsilogic,subformat=streamOptimized,compat6", imagePath, vmdkImagePath)
-	_, err = cmd.CombinedOutput()
-	imagePath = vmdkImagePath
-	if err != nil {
-		return err
+	if system == "fedora" {
+		vmdkImagePath := strings.Replace(imagePath, "raw", "vmdk", 1)
+		if _, err := os.Stat(vmdkImagePath); err == nil {
+			plog.Printf("Reusing existing vmdk image %q", vmdkImagePath)
+			return nil
+		}
+
+		cmd := exec.Command("qemu-img", "convert", "-f", "raw", "-O", "vmdk", "-o", "adapter_type=lsilogic,subformat=streamOptimized,compat6", imagePath, vmdkImagePath)
+		_, err = cmd.CombinedOutput()
+		imagePath = vmdkImagePath
+		if err != nil {
+			return err
+		}
 	}
 
 	var amis amiList
