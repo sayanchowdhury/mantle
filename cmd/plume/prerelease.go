@@ -128,7 +128,10 @@ func runFedoraPreRelease(system string, cmd *cobra.Command, args []string) error
 		}
 	}
 
-	spec := ChannelFedoraSpec()
+	spec, err := ChannelFedoraSpec()
+	if err != nil {
+		return err
+	}
 	ctx := context.Background()
 	client := http.Client{}
 

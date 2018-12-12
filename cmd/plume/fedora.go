@@ -115,12 +115,12 @@ func AddFedoraSpecFlags(flags *pflag.FlagSet) {
 
 func ChannelFedoraSpec() (channelSpec, error) {
 	if specChannel == "" {
-		return nil, fmt.Errorf("Unknown Channel %q", specChannel)
+		return channelSpec{}, fmt.Errorf("Unknown Channel %q", specChannel)
 	}
 
 	spec, ok := fedoraSpecs[specChannel]
 	if !ok {
-		return nil, fmt.Errorf("Unknown channel: %q", specChannel)
+		return channelSpec{}, fmt.Errorf("Unknown channel: %q", specChannel)
 	}
 
 	return spec, nil
