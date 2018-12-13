@@ -21,6 +21,8 @@ import (
 )
 
 var (
+	specArch            string
+	specComposeID       string
 	specEnv             string
 	specRespin          string
 	specImageType       string
@@ -47,8 +49,8 @@ var (
 	}
 
 	fedoraSpecs = map[string]channelSpec{
-		"updates": channelSpec{
-			BaseURL: "https://koji.fedoraproject.org/",
+		"rawhide": channelSpec{
+			BaseURL: "https://koji.fedoraproject.org/compose/rawhide",
 			System:  "Fedora",
 			AWS: awsSpec{
 				BaseName:        "Fedora",
@@ -58,30 +60,19 @@ var (
 				Partitions:      awsFedoraPartitions,
 			},
 		},
-		"twoweek": channelSpec{
-			BaseURL: "https://koji.fedoraproject.org/",
+		"updates": channelSpec{
+			BaseURL: "https://koji.fedoraproject.org/compose/updates",
 			System:  "Fedora",
 			AWS: awsSpec{
 				BaseName:        "Fedora",
 				BaseDescription: "Fedora AMI",
 				Prefix:          "fedora_{{.Env}}_ami_",
-				Image:           "Fedora-AtomicHost-{{.Version}}-{{.Timestamp}}.{{.Respin}}.{{.Arch}.raw.xz",
-				Partitions:      awsFedoraPartitions,
-			},
-		},
-		"version": channelSpec{
-			BaseURL: "https://koji.fedoraproject.org/",
-			System:  "Fedora",
-			AWS: awsSpec{
-				BaseName:        "Fedora",
-				BaseDescription: "Fedora AMI",
-				Prefix:          "fedora_{{.Env}}_ami_",
-				Image:           "Fedora-{{.Version}}-{{.Timestamp}}.{{.Arch}}.raw.xz",
+				Image:           "Fedora-AtomicHost-{{.Version}}-{{.Timestamp}}.{{.Respin}}.{{.Arch}}.raw.xz",
 				Partitions:      awsFedoraPartitions,
 			},
 		},
 		"branched": channelSpec{
-			BaseURL: "https://koji.fedoraproject.org",
+			BaseURL: "https://koji.fedoraproject.org/compose/branched",
 			System:  "Fedora",
 			AWS: awsSpec{
 				BaseName:        "Fedora",
@@ -92,7 +83,7 @@ var (
 			},
 		},
 		"cloud": channelSpec{
-			BaseURL: "https://koji.fedoraproject.org",
+			BaseURL: "https://koji.fedoraproject.org/compose/cloud",
 			System:  "Fedora",
 			AWS: awsSpec{
 				BaseName:        "Fedora",
@@ -112,6 +103,7 @@ func AddFedoraSpecFlags(flags *pflag.FlagSet) {
 	flags.StringVarP(&specTimestamp, "timestamp", "T", "20181101", "compose timestamp")
 	flags.StringVarP(&specRespin, "respin", "R", "0", "compose respin")
 	flags.StringVarP(&specArch, "arch", "A", "x86_64", "compose arch")
+	flags.StringVarP(&specComposeID, "composeid", "O", "Fail", "compose id")
 }
 
 func ChannelFedoraSpec() (channelSpec, error) {

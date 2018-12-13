@@ -282,7 +282,7 @@ func getCLImageFile(client *http.Client, src *storage.Bucket, fileName string) (
 	return imagePath, nil
 }
 
-func getFedoraImageFile(client *http.Client, src *storage.Bucket, fileName string) (string, error) {
+func getFedoraImageFile(client *http.Client, spec *channelSpec, src *storage.Bucket, fileName string) (string, error) {
 	cacheDir := filepath.Join(sdk.RepoCache(), "images", specChannel, specFedoraBoard, specFedoraVersion)
 	rawxzPath := filepath.Join(cacheDir, fileName)
 	imagePath := strings.TrimSuffix(rawxzPath, filepath.Ext(rawxzPath))
@@ -292,7 +292,11 @@ func getFedoraImageFile(client *http.Client, src *storage.Bucket, fileName strin
 		return imagePath, nil
 	}
 
-	rawxzURI, err := url.Parse("https://kojipkgs.fedoraproject.org/compose/cloud/Fedora-Cloud-29-20181114.0/compose/Cloud/x86_64/images/Fedora-Cloud-Base-29-20181114.0.x86_64.raw.xz")
+	if specImageType == "Cloud-Base" {
+		specImageType = "Cloud"
+	}
+	downloadURL := fmt.Sprintf("%v/%v/%v/compose/%v/%v/images", spec.BaseURL, specComposeID, specImageType, specArch)
+	rawxzURI, err := url.Parse(fmt.Sprintf("%v/%v", downloadURL, fileName))
 	if err != nil {
 		return "", err
 	}
@@ -313,11 +317,11 @@ func getFedoraImageFile(client *http.Client, src *storage.Bucket, fileName strin
 
 // getImageFile downloads a bzipped CoreOS image, verifies its signature,
 // decompresses it, and returns the decompressed path.
-func getImageFile(system string, client *http.Client, src *storage.Bucket, fileName string) (string, error) {
+func getImageFile(system string, client *http.Client, spec *channelSpec, src *storage.Bucket, fileName string) (string, error) {
 	if system == "cl" {
 		return getCLImageFile(client, src, fileName)
 	} else {
-		return getFedoraImageFile(client, src, fileName)
+		return getFedoraImageFile(client, spec, src, fileName)
 	}
 }
 
@@ -409,7 +413,7 @@ func azurePreRelease(ctx context.Context, system string, client *http.Client, sr
 	}
 
 	// download azure vhd image and unzip it
-	vhdfile, err := getImageFile(system, client, src, spec.Azure.Image)
+	vhdfile, err := getImageFile(system, client, spec, src, spec.Azure.Image)
 	if err != nil {
 		return err
 	}
@@ -749,7 +753,7 @@ func awsPreRelease(ctx context.Context, system string, client *http.Client, src 
 	imageName := imageData["imageName"]
 	imageDescription := imageData["imageDescription"]
 
-	imagePath, err := getImageFile(system, client, src, imageFileName)
+	imagePath, err := getImageFile(system, client, spec, src, imageFileName)
 	if err != nil {
 		return err
 	}
