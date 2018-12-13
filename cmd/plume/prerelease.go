@@ -143,6 +143,7 @@ func runFedoraPreRelease(system string, cmd *cobra.Command, args []string) error
 		"Timestamp": specTimestamp,
 		"Respin":    specRespin,
 		"ImageType": specImageType,
+		"Arch":      specArch,
 	}
 
 	for _, platformName := range platformList {

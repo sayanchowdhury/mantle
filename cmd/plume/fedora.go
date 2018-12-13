@@ -54,7 +54,7 @@ var (
 				BaseName:        "Fedora",
 				BaseDescription: "Fedora AMI",
 				Prefix:          "fedora_{{.Env}}_ami_",
-				Image:           "Fedora-AtomicHost-{{.Version}}-{{.Timestamp}}.{{.Respin}}.x86_64.raw.xz",
+				Image:           "Fedora-AtomicHost-{{.Version}}-{{.Timestamp}}.{{.Respin}}.{{.Arch}}.raw.xz",
 				Partitions:      awsFedoraPartitions,
 			},
 		},
@@ -65,7 +65,7 @@ var (
 				BaseName:        "Fedora",
 				BaseDescription: "Fedora AMI",
 				Prefix:          "fedora_{{.Env}}_ami_",
-				Image:           "Fedora-AtomicHost-{{.Version}}-{{.Timestamp}}.{{.Respin}}.x86_64.raw.xz",
+				Image:           "Fedora-AtomicHost-{{.Version}}-{{.Timestamp}}.{{.Respin}}.{{.Arch}.raw.xz",
 				Partitions:      awsFedoraPartitions,
 			},
 		},
@@ -76,7 +76,7 @@ var (
 				BaseName:        "Fedora",
 				BaseDescription: "Fedora AMI",
 				Prefix:          "fedora_{{.Env}}_ami_",
-				Image:           "Fedora-{{.Version}}-{{.Timestamp}}.x86_64.raw.xz",
+				Image:           "Fedora-{{.Version}}-{{.Timestamp}}.{{.Arch}}.raw.xz",
 				Partitions:      awsFedoraPartitions,
 			},
 		},
@@ -87,7 +87,7 @@ var (
 				BaseName:        "Fedora",
 				BaseDescription: "Fedora AMI",
 				Prefix:          "fedora_{{.Env}}_ami_",
-				Image:           "Fedora-{{.ImageType}}-{{.Version}}-{{.Timestamp}}.n.{{.Respin}}.x86_64.raw.xz",
+				Image:           "Fedora-{{.ImageType}}-{{.Version}}-{{.Timestamp}}.n.{{.Respin}}.{{.Arch}}.raw.xz",
 				Partitions:      awsFedoraPartitions,
 			},
 		},
@@ -98,7 +98,7 @@ var (
 				BaseName:        "Fedora",
 				BaseDescription: "Fedora AMI",
 				Prefix:          "fedora_{{.Env}}_ami_",
-				Image:           "Fedora-{{.ImageType}}-{{.Version}}-{{.Timestamp}}.x86_64.raw.xz",
+				Image:           "Fedora-{{.ImageType}}-{{.Version}}-{{.Timestamp}}.{{.Arch}}.raw.xz",
 				Partitions:      awsFedoraPartitions,
 			},
 		},
@@ -111,6 +111,7 @@ func AddFedoraSpecFlags(flags *pflag.FlagSet) {
 	flags.StringVarP(&specFedoraVersion, "fedoraversion", "F", "29", "fedora release version")
 	flags.StringVarP(&specTimestamp, "timestamp", "T", "20181101", "compose timestamp")
 	flags.StringVarP(&specRespin, "respin", "R", "0", "compose respin")
+	flags.StringVarP(&specArch, "arch", "A", "x86_64", "compose arch")
 }
 
 func ChannelFedoraSpec() (channelSpec, error) {
