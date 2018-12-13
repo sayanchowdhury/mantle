@@ -17,7 +17,6 @@ package main
 import (
 	"fmt"
 	"net/http"
-	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -51,6 +50,7 @@ func init() {
 	cmdRelease.Flags().BoolVarP(&releaseDryRun, "dry-run", "n", false,
 		"perform a trial run, do not make changes")
 	AddSpecFlags(cmdRelease.Flags())
+	AddFedoraSpecFlags(cmdPreRelease.Flags())
 	root.AddCommand(cmdRelease)
 }
 
@@ -369,8 +369,21 @@ func doAWS(ctx context.Context, client *http.Client, src *storage.Bucket, spec *
 		return
 	}
 
-	imageName := fmt.Sprintf("%v-%v-%v", spec.AWS.BaseName, specChannel, specVersion)
-	imageName = regexp.MustCompile(`[^A-Za-z0-9()\\./_-]`).ReplaceAllLiteralString(imageName, "_")
+	imageMetadata := map[string]interface{}{
+		"Env":       specEnv,
+		"Version":   specFedoraVersion,
+		"Timestamp": specTimestamp,
+		"Respin":    specRespin,
+		"ImageType": specImageType,
+		"Arch":      specArch,
+	}
+
+	imageData, err := getSpecAWSImageName(spec, &imageMetadata)
+	if err != nil {
+		return
+	}
+
+	imageName := imageData["imageName"]
 
 	for _, part := range spec.AWS.Partitions {
 		for _, region := range part.Regions {
