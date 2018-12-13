@@ -39,22 +39,62 @@ var (
 	cmdRelease    = &cobra.Command{
 		Use:   "release [options]",
 		Short: "Publish a new CoreOS release.",
-		Run:   runRelease,
+		RunE:  runRelease,
 		Long:  `Publish a new CoreOS release.`,
+	}
+
+	releaseSystems = map[string]system{
+		"cl": system{
+			displayName: "ContainerLinux",
+			handler:     runCLRelease,
+		},
+		"fedora": system{
+			displayName: "Fedora",
+			handler:     runFedoraRelease,
+		},
 	}
 )
 
 func init() {
 	cmdRelease.Flags().StringVar(&awsCredentialsFile, "aws-credentials", "", "AWS credentials file")
+	cmdPreRelease.Flags().StringVar(&selectedSystem, "system", "cl", "system to pre-release")
 	cmdRelease.Flags().StringVar(&azureProfile, "azure-profile", "", "Azure Profile json file")
 	cmdRelease.Flags().BoolVarP(&releaseDryRun, "dry-run", "n", false,
 		"perform a trial run, do not make changes")
 	AddSpecFlags(cmdRelease.Flags())
-	AddFedoraSpecFlags(cmdPreRelease.Flags())
+	AddFedoraSpecFlags(cmdRelease.Flags())
 	root.AddCommand(cmdRelease)
 }
 
-func runRelease(cmd *cobra.Command, args []string) {
+func runRelease(cmd *cobra.Command, args []string) error {
+	if systemInfo, ok := releaseSystems[selectedSystem]; !ok {
+		return fmt.Errorf("Unknown system %q", selectedSystem)
+	} else if err := systemInfo.handler(selectedSystem, cmd, args); err != nil {
+		plog.Fatal(err)
+	}
+
+	return nil
+}
+
+func runFedoraRelease(system string, cmd *cobra.Command, args []string) error {
+	if len(args) > 0 {
+		plog.Fatal("No args accepted")
+	}
+
+	spec, err := ChannelFedoraSpec()
+	if err != nil {
+		return err
+	}
+	ctx := context.Background()
+	client := &http.Client{}
+
+	// Make AWS images public.
+	doAWS(ctx, client, nil, &spec)
+
+	return nil
+}
+
+func runCLRelease(system string, cmd *cobra.Command, args []string) error {
 	if len(args) > 0 {
 		plog.Fatal("No args accepted")
 	}
@@ -140,6 +180,8 @@ func runRelease(cmd *cobra.Command, args []string) {
 			}
 		}
 	}
+
+	return nil
 }
 
 func sanitizeVersion() string {
