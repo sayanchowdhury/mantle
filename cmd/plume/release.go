@@ -17,7 +17,6 @@ package main
 import (
 	"fmt"
 	"net/http"
-	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -43,10 +42,15 @@ var (
 		Run:   runRelease,
 		Long:  `Publish a new CoreOS release.`,
 	}
+
 	releaseSystems = map[string]system{
 		"cl": system{
 			displayName: "ContainerLinux",
 			handler:     runCLRelease,
+		},
+		"fedora": system{
+			displayName: "Fedora",
+			handler:     runFedoraRelease,
 		},
 	}
 )
@@ -58,6 +62,7 @@ func init() {
 	cmdRelease.Flags().BoolVarP(&releaseDryRun, "dry-run", "n", false,
 		"perform a trial run, do not make changes")
 	AddSpecFlags(cmdRelease.Flags())
+	AddFedoraSpecFlags(cmdRelease.Flags())
 	root.AddCommand(cmdRelease)
 }
 
@@ -67,6 +72,24 @@ func runRelease(cmd *cobra.Command, args []string) {
 	} else if err := systemInfo.handler(cmd, args); err != nil {
 		plog.Fatal(err)
 	}
+}
+
+func runFedoraRelease(cmd *cobra.Command, args []string) error {
+	if len(args) > 0 {
+		plog.Fatal("No args accepted")
+	}
+
+	spec, err := ChannelFedoraSpec()
+	if err != nil {
+		return err
+	}
+	ctx := context.Background()
+	client := &http.Client{}
+
+	// Make AWS images public.
+	doAWS(ctx, client, nil, &spec)
+
+	return nil
 }
 
 func runCLRelease(cmd *cobra.Command, args []string) error {
@@ -386,8 +409,21 @@ func doAWS(ctx context.Context, client *http.Client, src *storage.Bucket, spec *
 		return
 	}
 
-	imageName := fmt.Sprintf("%v-%v-%v", spec.AWS.BaseName, specChannel, specVersion)
-	imageName = regexp.MustCompile(`[^A-Za-z0-9()\\./_-]`).ReplaceAllLiteralString(imageName, "_")
+	imageMetadata := imageMetadataAbstract{
+		Env:       specEnv,
+		Version:   specFedoraVersion,
+		Timestamp: specTimestamp,
+		Respin:    specRespin,
+		ImageType: specImageType,
+		Arch:      specArch,
+	}
+
+	imageData, err := getSpecAWSImageName(spec, &imageMetadata)
+	if err != nil {
+		return
+	}
+
+	imageName := imageData["imageName"]
 
 	for _, part := range spec.AWS.Partitions {
 		for _, region := range part.Regions {
