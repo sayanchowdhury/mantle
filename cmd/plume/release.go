@@ -43,10 +43,17 @@ var (
 		Run:   runRelease,
 		Long:  `Publish a new CoreOS release.`,
 	}
+	releaseSystems = map[string]system{
+		"cl": system{
+			displayName: "ContainerLinux",
+			handler:     runCLRelease,
+		},
+	}
 )
 
 func init() {
 	cmdRelease.Flags().StringVar(&awsCredentialsFile, "aws-credentials", "", "AWS credentials file")
+	cmdRelease.Flags().StringVar(&selectedSystem, "system", "cl", "system to pre-release")
 	cmdRelease.Flags().StringVar(&azureProfile, "azure-profile", "", "Azure Profile json file")
 	cmdRelease.Flags().BoolVarP(&releaseDryRun, "dry-run", "n", false,
 		"perform a trial run, do not make changes")
@@ -55,6 +62,14 @@ func init() {
 }
 
 func runRelease(cmd *cobra.Command, args []string) {
+	if systemInfo, ok := releaseSystems[selectedSystem]; !ok {
+		plog.Fatal("Unknown system %q", selectedSystem)
+	} else if err := systemInfo.handler(cmd, args); err != nil {
+		plog.Fatal(err)
+	}
+}
+
+func runCLRelease(cmd *cobra.Command, args []string) error {
 	if len(args) > 0 {
 		plog.Fatal("No args accepted")
 	}
@@ -140,6 +155,8 @@ func runRelease(cmd *cobra.Command, args []string) {
 			}
 		}
 	}
+
+	return nil
 }
 
 func sanitizeVersion() string {

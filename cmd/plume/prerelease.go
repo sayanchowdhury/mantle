@@ -62,7 +62,15 @@ var (
 	}
 	platformList []string
 
+	systems = map[string]system{
+		"cl": system{
+			displayName: "ContainerLinux",
+			handler:     runCLPreRelease,
+		},
+	}
+
 	selectedPlatforms  []string
+	selectedSystem     string
 	azureProfile       string
 	awsCredentialsFile string
 	verifyKeyFile      string
@@ -72,6 +80,11 @@ var (
 type platform struct {
 	displayName string
 	handler     func(context.Context, *http.Client, *storage.Bucket, *channelSpec, *imageInfo) error
+}
+
+type system struct {
+	displayName string
+	handler     func(*cobra.Command, []string) error
 }
 
 type imageInfo struct {
@@ -86,6 +99,7 @@ func init() {
 	sort.Sort(sort.StringSlice(platformList))
 
 	cmdPreRelease.Flags().StringSliceVar(&selectedPlatforms, "platform", platformList, "platform to pre-release")
+	cmdPreRelease.Flags().StringVar(&selectedSystem, "system", "cl", "system to pre-release")
 	cmdPreRelease.Flags().StringVar(&azureProfile, "azure-profile", "", "Azure Profile json file")
 	cmdPreRelease.Flags().StringVar(&awsCredentialsFile, "aws-credentials", "", "AWS credentials file")
 	cmdPreRelease.Flags().StringVar(&verifyKeyFile,
@@ -97,6 +111,18 @@ func init() {
 }
 
 func runPreRelease(cmd *cobra.Command, args []string) error {
+	if systemInfo, ok := systems[selectedSystem]; !ok {
+		return fmt.Errorf("Unknown system %q", selectedSystem)
+	} else if err := systemInfo.handler(cmd, args); err != nil {
+		return err
+	}
+
+	plog.Printf("Pre-release complete, run `plume release` to finish.")
+
+	return nil
+}
+
+func runCLPreRelease(cmd *cobra.Command, args []string) error {
 	if len(args) > 0 {
 		return errors.New("no args accepted")
 	}
@@ -170,6 +196,15 @@ func runPreRelease(cmd *cobra.Command, args []string) error {
 // getImageFile downloads a bzipped CoreOS image, verifies its signature,
 // decompresses it, and returns the decompressed path.
 func getImageFile(client *http.Client, src *storage.Bucket, fileName string) (string, error) {
+	switch selectedSystem {
+	case "cl":
+		return getCLImageFile(client, src, fileName)
+	default:
+		return "", fmt.Errorf("Invalid system: %v", selectedSystem)
+	}
+}
+
+func getCLImageFile(client *http.Client, src *storage.Bucket, fileName string) (string, error) {
 	cacheDir := filepath.Join(sdk.RepoCache(), "images", specChannel, specBoard, specVersion)
 	bzipPath := filepath.Join(cacheDir, fileName)
 	imagePath := strings.TrimSuffix(bzipPath, filepath.Ext(bzipPath))
