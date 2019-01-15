@@ -23,7 +23,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -543,7 +542,7 @@ func awsUploadToPartition(spec *channelSpec, part *awsPartitionSpec, imageName, 
 		}
 
 		plog.Printf("Creating EBS snapshot...")
-		snapshot, err = api.CreateSnapshot(imageName, s3ObjectURL, aws.EC2ImageFormatVmdk)
+		snapshot, err = api.CreateSnapshot(imageName, s3ObjectURL, aws.EC2ImageFormatRaw)
 		if err != nil {
 			return nil, nil, fmt.Errorf("unable to create snapshot: %v", err)
 		}
@@ -744,21 +743,6 @@ func awsPreRelease(ctx context.Context, client *http.Client, src *storage.Bucket
 	imagePath, err := getImageFile(client, spec, src, imageFileName)
 	if err != nil {
 		return err
-	}
-
-	if selectedSystem == "fedora" {
-		vmdkImagePath := strings.Replace(imagePath, "raw", "vmdk", 1)
-		if _, err := os.Stat(vmdkImagePath); err == nil {
-			plog.Printf("Reusing existing vmdk image %q", vmdkImagePath)
-			return nil
-		}
-
-		cmd := exec.Command("qemu-img", "convert", "-f", "raw", "-O", "vmdk", "-o", "adapter_type=lsilogic,subformat=streamOptimized,compat6", imagePath, vmdkImagePath)
-		_, err = cmd.CombinedOutput()
-		imagePath = vmdkImagePath
-		if err != nil {
-			return err
-		}
 	}
 
 	var amis amiList
