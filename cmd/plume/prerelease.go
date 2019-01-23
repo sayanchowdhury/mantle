@@ -542,6 +542,12 @@ func awsUploadToPartition(spec *channelSpec, part *awsPartitionSpec, imageName, 
 		}
 
 		plog.Printf("Creating EBS snapshot...")
+
+		format := aws.EC2ImageFormatRaw
+		if selectedSystem == "fedora" {
+			format = aws.EC2ImageFormatVmdk
+		}
+
 		snapshot, err = api.CreateSnapshot(imageName, s3ObjectURL, aws.EC2ImageFormatRaw)
 		if err != nil {
 			return nil, nil, fmt.Errorf("unable to create snapshot: %v", err)
@@ -562,9 +568,11 @@ func awsUploadToPartition(spec *channelSpec, part *awsPartitionSpec, imageName, 
 		return nil, nil, fmt.Errorf("unable to create HVM image: %v", err)
 	}
 
-	pvImageID, err := api.CreatePVImage(snapshot.SnapshotID, aws.ContainerLinuxDiskSizeGiB, imageName, imageDescription+" (PV)")
-	if err != nil {
-		return nil, nil, fmt.Errorf("unable to create PV image: %v", err)
+	if selectedSystem == "cl" {
+		pvImageID, err := api.CreatePVImage(snapshot.SnapshotID, aws.ContainerLinuxDiskSizeGiB, imageName, imageDescription+" (PV)")
+		if err != nil {
+			return nil, nil, fmt.Errorf("unable to create PV image: %v", err)
+		}
 	}
 
 	err = api.CreateTags([]string{snapshot.SnapshotID, hvmImageID, pvImageID}, map[string]string{
@@ -619,9 +627,13 @@ func awsUploadToPartition(spec *channelSpec, part *awsPartitionSpec, imageName, 
 		return nil, nil, fmt.Errorf("processing HVM images: %v", err)
 	}
 
-	pvAmis, err := postprocess(pvImageID, true)
-	if err != nil {
-		return nil, nil, fmt.Errorf("processing PV images: %v", err)
+	if selectedSystem == "cl" {
+		pvAmis, err := postprocess(pvImageID, true)
+		if err != nil {
+			return nil, nil, fmt.Errorf("processing PV images: %v", err)
+		}
+	} else {
+		pvAmis = nil
 	}
 
 	return hvmAmis, pvAmis, nil
