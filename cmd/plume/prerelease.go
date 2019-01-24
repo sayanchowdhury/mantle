@@ -548,7 +548,7 @@ func awsUploadToPartition(spec *channelSpec, part *awsPartitionSpec, imageName, 
 			format = aws.EC2ImageFormatVmdk
 		}
 
-		snapshot, err = api.CreateSnapshot(imageName, s3ObjectURL, aws.EC2ImageFormatRaw)
+		snapshot, err = api.CreateSnapshot(imageName, s3ObjectURL, format)
 		if err != nil {
 			return nil, nil, fmt.Errorf("unable to create snapshot: %v", err)
 		}
@@ -568,8 +568,9 @@ func awsUploadToPartition(spec *channelSpec, part *awsPartitionSpec, imageName, 
 		return nil, nil, fmt.Errorf("unable to create HVM image: %v", err)
 	}
 
+	pvImageID, err := "", errors.New("")
 	if selectedSystem == "cl" {
-		pvImageID, err := api.CreatePVImage(snapshot.SnapshotID, aws.ContainerLinuxDiskSizeGiB, imageName, imageDescription+" (PV)")
+		pvImageID, err = api.CreatePVImage(snapshot.SnapshotID, aws.ContainerLinuxDiskSizeGiB, imageName, imageDescription+" (PV)")
 		if err != nil {
 			return nil, nil, fmt.Errorf("unable to create PV image: %v", err)
 		}
@@ -627,13 +628,12 @@ func awsUploadToPartition(spec *channelSpec, part *awsPartitionSpec, imageName, 
 		return nil, nil, fmt.Errorf("processing HVM images: %v", err)
 	}
 
+	pvAmis, err := make(map[string]string), errors.New("")
 	if selectedSystem == "cl" {
-		pvAmis, err := postprocess(pvImageID, true)
+		pvAmis, err = postprocess(pvImageID, true)
 		if err != nil {
 			return nil, nil, fmt.Errorf("processing PV images: %v", err)
 		}
-	} else {
-		pvAmis = nil
 	}
 
 	return hvmAmis, pvAmis, nil
