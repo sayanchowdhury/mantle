@@ -543,9 +543,9 @@ func awsUploadToPartition(spec *channelSpec, part *awsPartitionSpec, imageName, 
 
 		plog.Printf("Creating EBS snapshot...")
 
-		format := aws.EC2ImageFormatRaw
+		format := aws.EC2ImageFormatVmdk
 		if selectedSystem == "fedora" {
-			format = aws.EC2ImageFormatVmdk
+			format = aws.EC2ImageFormatRaw
 		}
 
 		snapshot, err = api.CreateSnapshot(imageName, s3ObjectURL, format)
@@ -576,7 +576,11 @@ func awsUploadToPartition(spec *channelSpec, part *awsPartitionSpec, imageName, 
 		}
 	}
 
-	err = api.CreateTags([]string{snapshot.SnapshotID, hvmImageID, pvImageID}, map[string]string{
+	resources := []string{snapshot.SnapshotID, hvmImageID}
+	if selectedSystem == "cl" {
+		resources = append(resources, pvImageID)
+	}
+	err = api.CreateTags(resources, map[string]string{
 		"Channel": specChannel,
 		"Version": specVersion,
 	})
