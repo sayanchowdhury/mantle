@@ -77,7 +77,7 @@ var (
 				BaseName:        "Fedora",
 				BaseDescription: "Fedora AMI",
 				Prefix:          "fedora_{{.Env}}_ami_",
-				Image:           "Fedora-AtomicHost-{{.Version}}-{{.Timestamp}}.{{.Respin}}.{{.Arch}}.raw.xz",
+				Image:           "Fedora-AtomicHost-{{.Version}}-{{.Timestamp}}.{{.Respin}}.{{.Arch}}.vmdk",
 				Partitions:      awsFedoraPartitions,
 			},
 		},
@@ -87,7 +87,7 @@ var (
 				BaseName:        "Fedora",
 				BaseDescription: "Fedora AMI",
 				Prefix:          "fedora_{{.Env}}_ami_",
-				Image:           "Fedora-AtomicHost-{{.Version}}-{{.Timestamp}}.{{.Respin}}.{{.Arch}}.raw.xz",
+				Image:           "Fedora-AtomicHost-{{.Version}}-{{.Timestamp}}.{{.Respin}}.{{.Arch}}.vmdk",
 				Partitions:      awsFedoraPartitions,
 			},
 		},
@@ -97,7 +97,7 @@ var (
 				BaseName:        "Fedora",
 				BaseDescription: "Fedora AMI",
 				Prefix:          "fedora_{{.Env}}_ami_",
-				Image:           "Fedora-{{.ImageType}}-{{.Version}}-{{.Timestamp}}.n.{{.Respin}}.{{.Arch}}.raw.xz",
+				Image:           "Fedora-{{.ImageType}}-{{.Version}}-{{.Timestamp}}.n.{{.Respin}}.{{.Arch}}.vmdk",
 				Partitions:      awsFedoraPartitions,
 			},
 		},
@@ -107,7 +107,7 @@ var (
 				BaseName:        "Fedora",
 				BaseDescription: "Fedora AMI",
 				Prefix:          "fedora_{{.Env}}_ami_",
-				Image:           "Fedora-{{.ImageType}}-{{.Version}}-{{.Timestamp}}.{{.Respin}}.{{.Arch}}.raw.xz",
+				Image:           "Fedora-{{.ImageType}}-{{.Version}}-{{.Timestamp}}.{{.Respin}}.{{.Arch}}.vmdk",
 				Partitions:      awsFedoraPartitions,
 			},
 		},
@@ -117,7 +117,7 @@ var (
 				BaseName:        "Fedora",
 				BaseDescription: "Fedora AMI",
 				Prefix:          "fedora_{{.Env}}_ami_",
-				Image:           "Fedora-{{.ImageType}}-{{.Version}}-{{.Timestamp}}.{{.Respin}}.{{.Arch}}.raw.xz",
+				Image:           "Fedora-{{.ImageType}}-{{.Version}}-{{.Timestamp}}.{{.Respin}}.{{.Arch}}.vmdk",
 				Partitions:      awsFedoraUserPartitions,
 			},
 		},
@@ -126,10 +126,10 @@ var (
 
 func AddFedoraSpecFlags(flags *pflag.FlagSet) {
 	flags.StringVarP(&specEnv, "environment", "E", "prod", "instance environment")
-	flags.StringVarP(&specImageType, "imagetype", "I", "Cloud-Base", "type of image")
+	flags.StringVarP(&specImageType, "image-type", "I", "Cloud-Base", "type of image")
 	flags.StringVarP(&specTimestamp, "timestamp", "T", "", "compose timestamp")
 	flags.StringVarP(&specRespin, "respin", "R", "0", "compose respin")
-	flags.StringVarP(&specComposeID, "composeid", "O", "", "compose id")
+	flags.StringVarP(&specComposeID, "compose-id", "O", "", "compose id")
 }
 
 func ChannelFedoraSpec() (channelSpec, error) {

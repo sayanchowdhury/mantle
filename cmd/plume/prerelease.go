@@ -23,7 +23,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -230,6 +229,13 @@ func getImageFile(client *http.Client, spec *channelSpec, src *storage.Bucket, f
 	}
 }
 
+func getImageTypeURI() string {
+	if specImageType == "Cloud-Base" {
+		return "Cloud"
+	}
+	return specImageType
+}
+
 func getCLImageFile(client *http.Client, src *storage.Bucket, fileName string) (string, error) {
 	cacheDir := filepath.Join(sdk.RepoCache(), "images", specChannel, specBoard, specVersion)
 	bzipPath := filepath.Join(cacheDir, fileName)
@@ -263,34 +269,27 @@ func getCLImageFile(client *http.Client, src *storage.Bucket, fileName string) (
 
 func getFedoraImageFile(client *http.Client, spec *channelSpec, src *storage.Bucket, fileName string) (string, error) {
 	cacheDir := filepath.Join(sdk.RepoCache(), "images", specChannel, specVersion)
-	rawxzPath := filepath.Join(cacheDir, fileName)
-	imagePath := strings.TrimSuffix(rawxzPath, ".xz")
+	fileName = "Fedora-Cloud-Base-Rawhide-20190217.n.0.x86_64.vmdk"
+	vmdkPath := filepath.Join(cacheDir, fileName)
 
-	if _, err := os.Stat(imagePath); err == nil {
-		plog.Printf("Reusing existing image %q", imagePath)
-		return imagePath, nil
+	if _, err := os.Stat(vmdkPath); err == nil {
+		plog.Printf("Reusing existing image %q", vmdkPath)
+		return vmdkPath, nil
 	}
 
-	if specImageType == "Cloud-Base" {
-		specImageType = "Cloud"
-	}
-	rawxzURI, err := url.Parse(fmt.Sprintf("%v/%v/compose/%v/%v/images/%v", spec.BaseURL, specComposeID, specImageType, specBoard, fileName))
+	vmdkURI, err := url.Parse(fmt.Sprintf("%v/%v/compose/%v/%v/images/%v", spec.BaseURL, specComposeID, getImageTypeURI(), specBoard, fileName))
 	if err != nil {
 		return "", err
 	}
 
-	plog.Printf("Downloading image %q to %q", rawxzURI, rawxzPath)
+	plog.Printf("Downloading image %q to %q", vmdkURI, vmdkPath)
 
-	if err := sdk.UpdateFile(rawxzPath, rawxzURI.String(), client); err != nil {
+	vmdkURI, err = url.Parse("https://kojipkgs.fedoraproject.org//work/tasks/6399/32866399/Fedora-Cloud-Base-Rawhide-20190217.n.0.x86_64.vmdk")
+	if err := sdk.UpdateFile(vmdkPath, vmdkURI.String(), client); err != nil {
 		return "", err
 	}
 
-	// decompress it
-	plog.Printf("Decompressing %q...", rawxzPath)
-	if err := util.XZ2File(imagePath, rawxzPath); err != nil {
-		return "", err
-	}
-	return imagePath, nil
+	return vmdkPath, nil
 }
 
 func uploadAzureBlob(spec *channelSpec, api *azure.API, storageKey storageservice.GetStorageServiceKeysResponse, vhdfile, container, blobName string) error {
@@ -475,7 +474,7 @@ func getSpecAWSImageMetadata(spec *channelSpec) (map[string]string, error) {
 		imageName = fmt.Sprintf("%v-%v-%v", spec.AWS.BaseName, specChannel, specVersion)
 		imageName = regexp.MustCompile(`[^A-Za-z0-9()\\./_-]`).ReplaceAllLiteralString(imageName, "_")
 	case "fedora":
-		imageName = strings.TrimSuffix(imageFileName, ".raw.xz")
+		imageName = strings.TrimSuffix(imageFileName, ".vmdk")
 	}
 
 	imageDescription := fmt.Sprintf("%v %v %v", spec.AWS.BaseDescription, specChannel, specVersion)
@@ -515,8 +514,11 @@ func awsUploadToPartition(spec *channelSpec, part *awsPartitionSpec, imageName, 
 	imageName = awsImageMetadata["imageName"]
 	imageDescription = awsImageMetadata["imageDescription"]
 
-	s3ObjectPath := fmt.Sprintf("%s/%s/%s", specBoard, specVersion, strings.TrimSuffix(imageFileName, filepath.Ext(imageFileName)))
-	if selectedDistro == "fedora" {
+	var s3ObjectPath string
+	switch selectedDistro {
+	case "cl":
+		s3ObjectPath = fmt.Sprintf("%s/%s/%s", specBoard, specVersion, strings.TrimSuffix(imageFileName, filepath.Ext(imageFileName)))
+	case "fedora":
 		s3ObjectPath = fmt.Sprintf("%s/%s/%s", specBoard, specVersion, strings.TrimSuffix(imageFileName, filepath.Ext(imageFileName)))
 	}
 	s3ObjectURL := fmt.Sprintf("s3://%s/%s", part.Bucket, s3ObjectPath)
@@ -535,12 +537,7 @@ func awsUploadToPartition(spec *channelSpec, part *awsPartitionSpec, imageName, 
 
 		plog.Printf("Creating EBS snapshot...")
 
-		format := aws.EC2ImageFormatVmdk
-		if selectedDistro == "fedora" {
-			format = aws.EC2ImageFormatRaw
-		}
-
-		snapshot, err = api.CreateSnapshot(imageName, s3ObjectURL, format)
+		snapshot, err = api.CreateSnapshot(imageName, s3ObjectURL, aws.EC2ImageFormatVmdk)
 		if err != nil {
 			return nil, nil, fmt.Errorf("unable to create snapshot: %v", err)
 		}
@@ -749,20 +746,6 @@ func awsPreRelease(ctx context.Context, client *http.Client, src *storage.Bucket
 	imagePath, err := getImageFile(client, spec, src, imageFileName)
 	if err != nil {
 		return err
-	}
-
-	if selectedDistro == "fedora" {
-		vmdkImagePath := strings.Replace(imagePath, "raw", "vmdk", 1)
-		if _, err := os.Stat(vmdkImagePath); err == nil {
-			plog.Printf("Reusing existing vmdk image %q", vmdkImagePath)
-		}
-
-		cmd := exec.Command("qemu-img", "convert", "-f", "raw", "-O", "vmdk", "-o", "adapter_type=lsilogic,subformat=streamOptimized,compat6", imagePath, vmdkImagePath)
-		_, err = cmd.CombinedOutput()
-		imagePath = vmdkImagePath
-		if err != nil {
-			return err
-		}
 	}
 
 	var amis amiList
